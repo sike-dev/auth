@@ -21,7 +21,7 @@ How applications connect to it is covered separately in [implementation.md](./im
                                       │
                  ┌────────────────────┴──────────────────┐
                  │         Accounts website               │
-                 │   accounts.example.com                 │
+                 │   auth.sike.dev                        │
                  │   sign in · sign up · reset password   │
                  │   consent · sign out · account page    │
                  └────────────────────▲──────────────────┘
@@ -53,14 +53,14 @@ Create **one Supabase project per environment**, for example `auth-dev` and `aut
 Everything in this guide is done once per project. Keep the SQL in version control as migrations (Supabase CLI: `supabase migration new <name>`) so the environments stay identical.
 
 ### 2.2 Decide the accounts website address
-Pick it now, for example `https://accounts.example.com`. It ends up in:
+This project uses **`https://auth.sike.dev`**. It ends up in:
 - the Site URL
 - email links
 - the OAuth authorization URL
 
 Changing it later is painful.
 
-**Optional: a custom domain for Supabase itself.** This is a paid add-on, for example `https://auth.example.com` instead of `https://<project-ref>.supabase.co`. If you want one, set it up **before** apps go live, because apps pin the issuer URL. After adding it, check the `issuer` value in the discovery document (section 13) and use exactly that value in every app.
+**Optional: a custom domain for Supabase itself.** This is a paid add-on, for example `https://id.sike.dev` instead of `https://<project-ref>.supabase.co`. If you want one, set it up **before** apps go live, because apps pin the issuer URL. After adding it, check the `issuer` value in the discovery document (section 13) and use exactly that value in every app.
 
 ### 2.3 Know your keys
 Find them under **Project Settings → API Keys**.
@@ -110,8 +110,8 @@ Go to **Authentication → URL Configuration**.
 
 | Setting | Value | Why |
 |---|---|---|
-| **Site URL** | `https://accounts.example.com` | Base for email links and for the OAuth consent URL. |
-| **Redirect URLs** (allow list) | `https://accounts.example.com/**` plus your local dev URL (e.g. `http://localhost:3000/**`) in the dev project only | Where Supabase may send users after email confirmation or password reset. **Only the accounts site goes here, not your apps.** Apps are registered separately as OAuth clients (section 9). |
+| **Site URL** | `https://auth.sike.dev` | Base for email links and for the OAuth consent URL. |
+| **Redirect URLs** (allow list) | `https://auth.sike.dev/**` plus your local dev URL (e.g. `http://localhost:3000/**`) in the dev project only. If dev and production share one project, keep the localhost entry too (see hosting.md section 5). | Where Supabase may send users after email confirmation or password reset. **Only the accounts site goes here, not your apps.** Apps are registered separately as OAuth clients (section 9). |
 
 ---
 
@@ -284,7 +284,7 @@ revoke execute on function public.custom_access_token_hook(jsonb) from authentic
 ### 9.1 Enable it
 Go to **Authentication → OAuth Server**:
 - **Enable** the OAuth 2.1 server.
-- **Authorization path:** `/oauth/consent`. Combined with the Site URL, this becomes `https://accounts.example.com/oauth/consent`.
+- **Authorization path:** `/oauth/consent`. Combined with the Site URL, this becomes `https://auth.sike.dev/oauth/consent`.
 - **Dynamic client registration: off.** Only you should be able to create clients.
 
 With CLI-managed local development (`supabase/config.toml`):

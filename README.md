@@ -19,5 +19,6 @@ One sign-in for every Sike app: an accounts website on top of Supabase Auth and 
 ## Secrets
 
 - `.env` (admin values) and `web/.env.local` are git-ignored. Copy `.env.example` and `web/.env.example` to create them.
+- `web/.env.production` is the one env file that **is** committed. It holds the public values the live site is built with (`https://auth.sike.dev`), and a test fails if anything secret-looking is added to it.
 - The Supabase secret key, access token and Resend key stay in `.env` or your CI secret store. Never in `web/`, an app, or a commit.
-- The Supabase URL and publishable key are public by design; they still belong in env files, not in code.
+- The Supabase URL and publishable key are public by design; they ship in the site's JavaScript anyway.

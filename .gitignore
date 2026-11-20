@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# web/.env.production holds public values only (guarded by a test) and is tracked on purpose
+!web/.env.production
 *.pem
 *.key
 

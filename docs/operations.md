@@ -35,7 +35,7 @@ Nothing in this repo should contain a real secret. Before a push, run `git diff 
 | **Change the password rules** | Change the minimum in the dashboard and `MIN_PASSWORD_LENGTH` in `web/src/lib/validation.ts` (the error message follows it), then redeploy. |
 | **Change email wording or look** | Edit `supabase/email-templates/`, then re-run `apply-email-config.mjs`. |
 | **Raise email limits** | Authentication → Rate Limits, to match your Resend plan. |
-| **Change the logout allow-list** | Update `VITE_LOGOUT_RETURN_ORIGINS` in the host's build settings and redeploy. |
+| **Change the logout allow-list** | Edit `VITE_LOGOUT_RETURN_ORIGINS` in `web/.env.production`, commit and push. The host rebuilds. |
 
 ---
 

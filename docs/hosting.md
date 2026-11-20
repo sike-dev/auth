@@ -24,18 +24,22 @@ Do the Supabase setup first ([supabase.md](./supabase.md)). Keep **one deploymen
 | Root directory | `web` |
 | Build command | `npm run build` (runs the type check, then the Vite build) |
 | Build output directory | `dist` |
-| Node version | 20.19 or newer (Vite 8 requires it). On Cloudflare Pages set the variable `NODE_VERSION` to `22`. |
+| Node version | 20.19 or newer (Vite 8 requires it). `web/.node-version` pins `22`, which Cloudflare Pages reads. Setting `NODE_VERSION=22` in the dashboard does the same. |
 
-### Environment variables (set for the host's build)
+### Environment variables
+
+Production values live in **`web/.env.production`**, which is committed. `vite build` reads it automatically, so the host needs **no environment variables of its own**.
 
 | Name | Value | Secret? |
 |---|---|---|
 | `VITE_SUPABASE_URL` | `https://<project-ref>.supabase.co` | No |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` | No, public by design |
-| `VITE_LOGOUT_RETURN_ORIGINS` | Comma-separated origins of your apps, e.g. `https://app-a.example.com,https://app-b.example.com` | No |
+| `VITE_LOGOUT_RETURN_ORIGINS` | Comma-separated https origins of your apps, e.g. `https://app.sike.dev,https://www.sike.dev`. Empty means no app may use `return_to` yet. | No |
 
-- **Everything with a `VITE_` prefix ends up in the public JavaScript.** Never put the Supabase secret key, the access token or the Resend key here.
-- **They are read at build time.** Changing one means a new build and deploy. That includes adding an app to `VITE_LOGOUT_RETURN_ORIGINS`.
+- **Everything with a `VITE_` prefix ends up in the public JavaScript.** That is why the file may be committed, and why it must never hold the Supabase secret key, the access token or the Resend key. `src/lib/env-production.test.ts` fails if a secret-looking value or a non-`VITE_` variable is added.
+- **They are read at build time.** Changing one means a new build and deploy. That includes adding an app to `VITE_LOGOUT_RETURN_ORIGINS`: edit the file, commit, push.
+- Variables set in the host's dashboard override the file. Use that only for something you don't want in git.
+- On your machine, `npm run build` uses `.env.production` (it wins over `.env.local`), and `npm run dev` uses `.env.local`.
 - Origins only: scheme, host and port, no path. Entries that aren't valid URLs are ignored.
 
 ---
@@ -72,25 +76,27 @@ Things to know about the CSP:
 ## 4. Cloudflare Pages: first deploy
 
 1. In the Cloudflare dashboard, **Workers & Pages → Create → Pages → Connect to Git**, and pick the repo.
-2. Enter the build settings and environment variables from section 2. Set the production variables for **Production** and the dev project's values for **Preview** (see the note below).
-3. Deploy. You get a `https://<project>.pages.dev` address.
-4. Add the custom domain (for example `accounts.example.com`) under the project's **Custom domains** tab.
+2. Enter the build settings from section 2. No environment variables are needed, because `web/.env.production` is in the repo.
+3. Deploy. You get a `https://<project>.pages.dev` address. Open it and check the site loads.
+4. Add the custom domain `auth.sike.dev` under the project's **Custom domains** tab. If `sike.dev` is managed in Cloudflare DNS, the record is created for you. Otherwise add a `CNAME` record `auth` pointing to `<project>.pages.dev` at your DNS provider. The existing `mail.sike.dev` email records are unaffected.
 5. Do the Supabase side (section 5 below).
 6. Run the smoke test (section 6).
 
-**Preview deployments** get their own `*.pages.dev` addresses, which aren't in Supabase's redirect allow-list, so sign-up and reset emails can't work from a preview. Point preview builds at the dev project, or turn previews off for this project.
+**Preview deployments** build with the same `.env.production`, so they point at the production Supabase project, and their `*.pages.dev` addresses aren't in Supabase's redirect allow-list (sign-up and reset emails can't work from a preview). Turn previews off for this project, or override the variables for **Preview** with a dev project's values.
 
 ---
 
 ## 5. Supabase settings that depend on the address
 
-In the production project (supabase.md sections 4 and 9.1):
+In the Supabase project that `web/.env.production` points at (supabase.md sections 4 and 9.1):
 
 | Setting | Value |
 |---|---|
-| Authentication → URL Configuration → **Site URL** | `https://accounts.example.com` |
-| Authentication → URL Configuration → **Redirect URLs** | `https://accounts.example.com/**` only. No `localhost` in production. |
+| Authentication → URL Configuration → **Site URL** | `https://auth.sike.dev` |
+| Authentication → URL Configuration → **Redirect URLs** | `https://auth.sike.dev/**`. Keep `localhost` out of a dedicated production project. |
 | Authentication → OAuth Server → **Authorization path** | `/oauth/consent` |
+
+**One project for development and production.** The Site URL is a single value, so once it is `https://auth.sike.dev`, emails sent while you develop locally also link to the live site, and local sign-up confirmations finish there. If you keep using the same project locally, also add `http://localhost:3000/**` to the Redirect URLs. This works, but test users and real users share one user table. A separate dev project (supabase.md section 2.1) avoids that; switching later only means changing the two Supabase values in `web/.env.local`.
 
 Then re-apply the email templates so links use the new Site URL: `node --env-file=.env supabase/apply-email-config.mjs` (from the repo root, with the production project's values).
 
@@ -98,15 +104,13 @@ Then re-apply the email templates so links use the new Site URL: `node --env-fil
 
 ## 6. Smoke test after every deploy
 
-Replace the address with yours.
-
 ```sh
 # 1. Security headers are present
-curl -sI https://accounts.example.com/ | grep -iE 'content-security-policy|strict-transport-security|x-frame-options|x-content-type-options|referrer-policy'
+curl -sI https://auth.sike.dev/ | grep -iE 'content-security-policy|strict-transport-security|x-frame-options|x-content-type-options|referrer-policy'
 
 # 2. Deep links work (expect 200 for each, not 404)
 for p in / /login /signup /forgot-password /reset-password /auth/confirm /oauth/consent /logout; do
-  printf '%s  ' "$p"; curl -s -o /dev/null -w '%{http_code}\n' "https://accounts.example.com$p"
+  printf '%s  ' "$p"; curl -s -o /dev/null -w '%{http_code}\n' "https://auth.sike.dev$p"
 done
 ```
 
@@ -125,4 +129,4 @@ If the console shows a CSP error, the message names the blocked address and the 
 
 - **Update:** push to the production branch. Every change to `web/` rebuilds the site.
 - **Roll back:** Cloudflare Pages keeps earlier deployments. Promote a previous one from the project's **Deployments** tab. Changes in Supabase (settings, migrations) are not rolled back with it.
-- **Adding an app** means a new OAuth client, a row in `private.oauth_apps`, and an updated `VITE_LOGOUT_RETURN_ORIGINS` followed by a redeploy (implementation.md section 16).
+- **Adding an app** means a new OAuth client, a row in `private.oauth_apps`, and the app's origin added to `VITE_LOGOUT_RETURN_ORIGINS` in `web/.env.production` (commit and push to redeploy). See implementation.md section 16.

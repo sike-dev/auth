@@ -10,7 +10,7 @@ Supabase-side setup (keys, OAuth server, client registration) is covered in [sup
 
 | Term | Meaning |
 |---|---|
-| **Accounts website** | `https://accounts.example.com`. The **only** place a user types an email and password. Apps never see passwords. |
+| **Accounts website** | `https://auth.sike.dev`. The **only** place a user types an email and password. Apps never see passwords. |
 | **Issuer** | `https://<project-ref>.supabase.co/auth/v1`. The Supabase Auth server that issues tokens. Every library needs this one value; everything else is discovered from it. |
 | **OAuth client** | Your app's registration in Supabase. Each app has one per platform and environment, and each has a **client ID** (and a secret, for server-side web apps only). |
 | **Redirect URI** | The exact URL in your app where users land after signing in. It must match the registration character for character. |
@@ -60,7 +60,7 @@ For each app, collect these from the Supabase setup:
 | Client secret (server-rendered web only) | `…` | **Yes**: server-side secret store only |
 | Redirect URI (per platform) | `https://app-a.example.com/auth/callback` | No |
 | Scopes | `openid email profile` | No |
-| Accounts site URL | `https://accounts.example.com` | No |
+| Accounts site URL | `https://auth.sike.dev` | No |
 | App name (the `app` claim) | `app_a` | No |
 | Supabase publishable key (only if the app reads the Supabase database directly) | `sb_publishable_…` | No |
 
@@ -272,7 +272,7 @@ export async function api(path: string, init: RequestInit = {}) {
 └──────────────────────────────┘
               ↓
 ┌──────────────────────────────┐
-│  accounts.example.com        │   ← browser sheet
+│  auth.sike.dev               │   ← browser sheet
 │  Email    [            ]     │   (skipped entirely if already signed in:
 │  Password [            ]     │    the sheet opens and closes by itself)
 │       [ Sign in ]            │
@@ -481,11 +481,11 @@ const { data, error } = await supabase.from('items').select('*')
 | User action | App does |
 |---|---|
 | **Sign out (this app)** | Delete local tokens and the server session. The user stays signed in on the accounts site, so the next sign-in is instant. |
-| **Sign out everywhere** | Delete local tokens, then send the user to `https://accounts.example.com/logout?scope=global&return_to=<url>`. The accounts site ends every session; other apps lose access by the time their access token expires. |
+| **Sign out everywhere** | Delete local tokens, then send the user to `https://auth.sike.dev/logout?scope=global&return_to=<url>`. The accounts site ends every session; other apps lose access by the time their access token expires. |
 | **Forced sign-out** (refresh failed) | Clear tokens and show the signed-out screen. |
 
 - **On mobile,** open the logout URL with the same system browser session (`ASWebAuthenticationSession` / Custom Tabs) so the browser's SSO session is cleared too.
-- **The accounts site only redirects** to `return_to` values on its allow-list (your apps' registered origins), to prevent open redirects. The list is the build-time setting `VITE_LOGOUT_RETURN_ORIGINS` (comma-separated origins), so adding an app means updating it and redeploying the accounts site (see section 16 and hosting.md).
+- **The accounts site only redirects** to `return_to` values on its allow-list (your apps' registered origins), to prevent open redirects. The list is the build-time setting `VITE_LOGOUT_RETURN_ORIGINS` (comma-separated origins in `web/.env.production`), so adding an app means editing it and redeploying the accounts site (see section 16 and hosting.md).
 - **Pick one meaning for the app's main "Sign out" button,** and use it in every app. A sensible default: "Sign out" means this app only, and the accounts page offers "Sign out of all apps".
 
 ---
@@ -496,12 +496,12 @@ Apps don't build their own account screens. Link to the accounts site instead.
 
 | Need | Link | Status |
 |---|---|---|
-| Account overview, sign out, sign out of all apps | `https://accounts.example.com/` | **Built** |
+| Account overview, sign out, sign out of all apps | `https://auth.sike.dev/` | **Built** |
 | Sign up (new users) | Start the normal sign-in flow; the accounts site's login page has a "Create account" tab. | **Built** |
-| Change password while signed in | `https://accounts.example.com/account/password` | Planned, not built. Today users use "Forgot password?" on the login page. |
-| Change email | `https://accounts.example.com/account/email` | Planned, not built |
-| Apps with access / revoke | `https://accounts.example.com/account/apps` | Planned, not built |
-| Delete account | `https://accounts.example.com/account/delete` | Planned, not built. Needs server-side code, because deleting a user requires the secret key. |
+| Change password while signed in | `https://auth.sike.dev/account/password` | Planned, not built. Today users use "Forgot password?" on the login page. |
+| Change email | `https://auth.sike.dev/account/email` | Planned, not built |
+| Apps with access / revoke | `https://auth.sike.dev/account/apps` | Planned, not built |
+| Delete account | `https://auth.sike.dev/account/delete` | Planned, not built. Needs server-side code, because deleting a user requires the secret key. |
 | Edit profile details | not decided yet | Planned, not built |
 
 Only link to routes marked **Built**; the others return the accounts site's "not found" page until they exist.
@@ -549,7 +549,7 @@ After an email change, the new address shows up in the app at the next token ref
 2. **Register OAuth clients** in Supabase: one per platform, per environment, each with exact redirect URIs (supabase.md section 9.3).
 3. **Add each client** to `private.oauth_apps` with that app name (supabase.md section 9.4).
 4. **If the app uses the Supabase database:** create its schema, tables and RLS policies checking `app = 'app_c'`, then expose the schema (supabase.md section 10).
-5. **Add the app's origin to the accounts site's `return_to` allow-list.** Append it to `VITE_LOGOUT_RETURN_ORIGINS` (comma-separated origins, no paths) in the accounts site's build settings, then redeploy it. It's read at build time, so the change doesn't take effect until the new build is live.
+5. **Add the app's origin to the accounts site's `return_to` allow-list.** Append it to `VITE_LOGOUT_RETURN_ORIGINS` (comma-separated https origins, no paths) in `web/.env.production`, then commit and push so the site rebuilds. It's read at build time, so the change doesn't take effect until the new build is live.
 6. **Integrate sign-in** (sections 5–7), token handling (section 8), and backend verification (section 9).
 7. **Test:** follow [testing.md](./testing.md). It covers:
    - first sign-in
