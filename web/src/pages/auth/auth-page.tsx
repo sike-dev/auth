@@ -43,7 +43,7 @@ export function AuthPage() {
           <SignInForm next={next} />
         </TabsContent>
         <TabsContent value="signup">
-          <SignUpForm next={next} />
+          <SignUpForm />
         </TabsContent>
       </Tabs>
     </AuthLayout>

@@ -1,0 +1,12 @@
+# Security headers for Cloudflare Pages (also read by Cloudflare Workers static assets).
+# On Netlify, copy these into netlify.toml or a Netlify _headers file. See docs/hosting.md.
+#
+# connect-src allows the Supabase project. If you add a custom Supabase domain
+# (supabase.md section 2.2), add its origin to connect-src.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()

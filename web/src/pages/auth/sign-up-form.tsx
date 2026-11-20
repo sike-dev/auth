@@ -14,7 +14,7 @@ import { messageFor } from '@/lib/errors'
 import { supabase } from '@/lib/supabase'
 import { signUpSchema, type SignUpValues } from '@/lib/validation'
 
-export function SignUpForm({ next }: { next: string }) {
+export function SignUpForm() {
   const navigate = useNavigate()
   const [formError, setFormError] = useState<string | null>(null)
   const {
@@ -28,14 +28,14 @@ export function SignUpForm({ next }: { next: string }) {
   const onSubmit = handleSubmit(async (raw) => {
     setFormError(null)
     const values = signUpSchema.parse(raw)
-    const redirect = new URL('/auth/confirm', window.location.origin)
-    if (next !== '/') redirect.searchParams.set('next', next)
 
     try {
+      // The confirmation email always lands on the account page. A pending app sign-in
+      // request is short-lived, so the user returns to the app on their own.
       const { error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
-        options: { emailRedirectTo: redirect.href },
+        options: { emailRedirectTo: new URL('/auth/confirm', window.location.origin).href },
       })
       if (error) throw error
       // Same screen whether the address is new or already registered, so this

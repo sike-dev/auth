@@ -2,7 +2,7 @@
 
 This guide covers everything to configure in Supabase so one Supabase project can be the **central login** for all your web and mobile applications, using **email + password** and **single sign-on**.
 
-How applications connect to it is covered separately in [implementation.md](./implementation.md).
+How applications connect to it is covered separately in [implementation.md](./implementation.md). Deploying the accounts website is in [hosting.md](./hosting.md), day-to-day tasks and secret rotation in [operations.md](./operations.md), and an end-to-end test recipe in [testing.md](./testing.md).
 
 > **Status note.** Supabase's OAuth 2.1 server is in **beta** (free on all plans; users count toward Monthly Active Users). Dashboard menu names change from time to time. If a setting isn't where this guide says, search the dashboard for it. Verify against the official docs before going live: <https://supabase.com/docs/guides/auth/oauth-server>.
 
@@ -73,6 +73,14 @@ Find them under **Project Settings → API Keys**.
 If your project still shows the legacy `anon` / `service_role` keys, they play the same roles. Prefer the new keys.
 
 Store secrets in your hosting provider's secret manager or a git-ignored `.env`. Never keep them in plain text files.
+
+### 2.5 Apply the migrations
+`supabase/migrations/` holds the SQL for the `private` schema, the app registry and the token hook. Run it on every new project (dev first, then prod) **before** enabling the hook in section 8.
+
+- **Simplest:** open **SQL Editor** in the dashboard and run the two files in filename order.
+- **CLI:** `supabase login`, then from the repo root `supabase init` (adds `supabase/config.toml` next to the existing `migrations/` folder; it has no secrets and only configures local development), `supabase link --project-ref <project-ref>`, and `supabase db push`.
+
+Check afterwards: `select * from private.oauth_apps;` runs without an error, and `public.custom_access_token_hook` exists.
 
 ### 2.4 Protect the Supabase account itself
 - Turn on **MFA** for every person with dashboard access (Account → Security).
@@ -152,6 +160,8 @@ The accounts website's `/auth/confirm` page handles **both** link styles:
 - **Default Supabase links** (`{{ .ConfirmationURL }}`): land on `/auth/confirm#access_token=…&refresh_token=…&type=…`, handled the same way. Useful as a fallback.
 
 **Links use `{{ .SiteURL }}`,** so the Site URL setting (section 4) must be the real accounts address in production, otherwise emails point at `localhost`.
+
+**Where links land:** every emailed link opens `/auth/confirm`, which then continues to `/reset-password` (reset links) or the account page (everything else). A new user who signed up from inside an app therefore ends on the account page after confirming. The pending app sign-in request is short-lived, so they return to the app and sign in again, which is instant because of SSO.
 
 For reference, the three links look like this:
 
@@ -344,6 +354,8 @@ All clients of the same application share the same `app` value. That is how the 
 
 So if your apps store data in **this** Supabase project, RLS must separate applications. Otherwise one app's token could read another app's tables.
 
+**Tokens can do more than read tables.** The access token *is* the user's session, so besides your tables it can call Supabase's own user endpoint (`/auth/v1/user`) as that user. Assume it can read the profile and may be able to change the email or password, depending on your Auth settings. Apps here are first-party and trusted, so this is accepted, but never register a client for an app you don't control. [testing.md](./testing.md) has a step that shows what your project allows.
+
 **Recommended layout:** one schema per application, and every policy checks both the user and the `app` claim.
 
 ```sql
@@ -394,7 +406,7 @@ Go to **Authentication → Sessions**:
 - **Inactivity timeout:** e.g. 14 days.
 - **Single session per user:** usually **off**, because users have several devices.
 
-These limits also govern how long the SSO cookie on the accounts site lasts.
+These limits also govern how long the SSO session on the accounts site lasts.
 
 ### 11.3 Sign-out
 - **Local sign-out** in an app just deletes that app's tokens.
@@ -414,7 +426,7 @@ Go to **Authentication → Attack Protection** and **Authentication → Rate Lim
 | **Supabase rate limits** | Keep the defaults for sign-in and verification. Set email-sending limits to fit your SMTP plan. |
 | **Your own rate limits** | Supabase already rate-limits sign-in, sign-up and email sending per IP. Because the accounts website is a static app, put any extra limiting (e.g. 5 attempts per minute per IP) at the CDN or WAF in front of it. |
 | **Generic errors** | Never reveal whether an email has an account: keep "Email or password is incorrect" for sign-in, and the same "Check your email" screen for sign-up and password reset (section 7). |
-| **Security headers** | The accounts site sends HSTS, a strict Content-Security-Policy, and `frame-ancestors 'none'` so it can't be embedded (clickjacking). |
+| **Security headers** | `web/public/_headers` sets HSTS, a strict Content-Security-Policy and `frame-ancestors 'none'` (so the site can't be embedded) when deployed on Cloudflare Pages. Other hosts need the same headers set in their own format. See [hosting.md](./hosting.md), and check them after every deploy. |
 
 ---
 
@@ -433,11 +445,11 @@ Replace `<project-ref>`, or use your custom domain if you set one up.
 
 Supported:
 - **Grant types:** `authorization_code` (with PKCE) and `refresh_token`. The password grant and client credentials are **not** supported, so apps must use the redirect flow.
-- **Scopes:** `openid`, `email`, `profile`, `phone`. The default is `email`.
+- **Scopes:** `openid`, `email`, `profile`, `phone`. The default is `email`. (The discovery document also lists `offline_access`; Supabase's docs don't describe it, so don't rely on it.)
 
-Open the discovery URL in a browser once and check:
-- the `issuer` value
-- whether an `end_session_endpoint` / `revocation_endpoint` is listed (they may be added later; until then, sign out via the accounts site as described above)
+Open the discovery URL in a browser once and check the `issuer` value.
+
+**Checked on this project on 2026-11-21:** the discovery document lists no `end_session_endpoint` and no `revocation_endpoint`. Signing out everywhere therefore goes through the accounts site (`/logout?scope=global`). Look again from time to time; Supabase may add them.
 
 ---
 
@@ -473,6 +485,7 @@ Run through all of these before production:
 - [ ] OAuth server enabled, dynamic registration off, consent path set.
 - [ ] One OAuth client per app/platform with exact production redirect URIs, each in `private.oauth_apps`.
 - [ ] Access token hook enabled and tested.
+- [ ] Accounts site deployed with the security headers from `web/public/_headers` (verify with the smoke test in hosting.md) and with a fallback to `index.html` for every route.
 - [ ] CAPTCHA and rate limits on.
 - [ ] RLS enabled on every exposed table; `private` not exposed.
 - [ ] Secret key stored only in your admin tooling or CI secrets. It's not in the accounts website or any app.

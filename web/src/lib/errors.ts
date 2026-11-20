@@ -1,7 +1,9 @@
+import { MIN_PASSWORD_LENGTH } from '@/lib/validation'
+
 const messages: Record<string, string> = {
   invalid_credentials: 'Email or password is incorrect.',
   email_not_confirmed: 'Confirm your email first. Check your inbox for the link we sent.',
-  weak_password: 'Use at least 6 characters.',
+  weak_password: `Use at least ${MIN_PASSWORD_LENGTH} characters.`,
   same_password: 'Choose a password you haven’t used for this account.',
   over_email_send_rate_limit: 'We’ve sent too many emails recently. Try again in a little while.',
   over_request_rate_limit: 'Too many attempts. Wait a minute and try again.',

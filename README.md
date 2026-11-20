@@ -6,7 +6,15 @@ One sign-in for every Sike app: an accounts website on top of Supabase Auth and 
 |---|---|
 | `web/` | The accounts website (React + Vite). Sign up, sign in, password reset, SSO consent, sign out, account page. See `web/README.md`. |
 | `supabase/` | SQL migrations, branded email templates, and the script that applies email settings. |
-| `docs/` | `supabase.md`: configuring Supabase. `implementation.md`: how an app signs users in and verifies tokens. |
+| `docs/` | The guides below. |
+
+| Guide | Read it to |
+|---|---|
+| `docs/supabase.md` | configure Supabase (keys, OAuth server, token hook, email) |
+| `docs/implementation.md` | connect an app: sign-in flow, tokens, backend checks |
+| `docs/hosting.md` | deploy the accounts website (build, headers, domain, smoke test) |
+| `docs/operations.md` | rotate secrets, disable an app, fix common failures |
+| `docs/testing.md` | prove the whole flow works with a throwaway client |
 
 ## Secrets
 

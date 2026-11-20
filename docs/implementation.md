@@ -20,7 +20,7 @@ Supabase-side setup (keys, OAuth server, client registration) is covered in [sup
 | **ID token** | A JWT describing who signed in. It's for the app's UI only; never send it to APIs. Requires the `openid` scope. |
 
 ### Why the user only signs in once
-The accounts site keeps its own session cookie. When a second app redirects there, the cookie is already present, so the site approves immediately and sends the user straight back. The only requirement on the app side is to use a **real browser** (the system browser on mobile), so that cookie is shared.
+The accounts site keeps its own session in the browser, in storage that belongs to its domain (not a cookie). When a second app redirects there, that session is already present, so the site approves immediately and sends the user straight back. The only requirement on the app side is to use a **real browser** (the system browser on mobile), so the same browser storage is shared.
 
 ### What's inside an access token
 ```json
@@ -257,8 +257,8 @@ export async function api(path: string, init: RequestInit = {}) {
 - **Use the system browser for login:**
   - iOS: `ASWebAuthenticationSession`, which AppAuth uses by default
   - Android: Custom Tabs, which AppAuth uses by default
-- **Never use an embedded WebView.** It can't see the accounts site's cookie, so SSO wouldn't work. It's also a security risk, and Apple and Google discourage it.
-- On iOS, leave `prefersEphemeralWebBrowserSession = false`. If set to `true`, the browser forgets the SSO cookie.
+- **Never use an embedded WebView.** It can't see the accounts site's browser session, so SSO wouldn't work. It's also a security risk, and Apple and Google discourage it.
+- On iOS, leave `prefersEphemeralWebBrowserSession = false`. If set to `true`, the browser forgets the SSO session.
 - **Public client, no secret,** with PKCE.
 - **Store tokens in the Keychain (iOS) or Keystore-backed encrypted storage (Android).** Never in UserDefaults or plain SharedPreferences.
 - **Redirect URI:** prefer a claimed HTTPS link (Universal Link / App Link). Otherwise use a reverse-DNS custom scheme such as `com.example.appa:/oauth/callback`. Register exactly what you use.
@@ -484,24 +484,29 @@ const { data, error } = await supabase.from('items').select('*')
 | **Sign out everywhere** | Delete local tokens, then send the user to `https://accounts.example.com/logout?scope=global&return_to=<url>`. The accounts site ends every session; other apps lose access by the time their access token expires. |
 | **Forced sign-out** (refresh failed) | Clear tokens and show the signed-out screen. |
 
-- **On mobile,** open the logout URL with the same system browser session (`ASWebAuthenticationSession` / Custom Tabs) so the browser's SSO cookie is cleared too.
-- **The accounts site only redirects** to `return_to` values on its allow-list (your apps' registered origins), to prevent open redirects.
+- **On mobile,** open the logout URL with the same system browser session (`ASWebAuthenticationSession` / Custom Tabs) so the browser's SSO session is cleared too.
+- **The accounts site only redirects** to `return_to` values on its allow-list (your apps' registered origins), to prevent open redirects. The list is the build-time setting `VITE_LOGOUT_RETURN_ORIGINS` (comma-separated origins), so adding an app means updating it and redeploying the accounts site (see section 16 and hosting.md).
 - **Pick one meaning for the app's main "Sign out" button,** and use it in every app. A sensible default: "Sign out" means this app only, and the accounts page offers "Sign out of all apps".
 
 ---
 
 ## 13. Account management
 
-Apps don't build their own account screens. Link to the accounts site instead:
+Apps don't build their own account screens. Link to the accounts site instead.
 
-| Need | Link |
-|---|---|
-| Account overview | `https://accounts.example.com/account` |
-| Change password | `https://accounts.example.com/account/password` |
-| Change email | `https://accounts.example.com/account/email` |
-| Apps with access / revoke | `https://accounts.example.com/account/apps` |
-| Delete account | `https://accounts.example.com/account/delete` |
-| Sign up (new users) | Start the normal sign-in flow; the accounts site's login page links to sign-up and returns to the app afterwards. |
+| Need | Link | Status |
+|---|---|---|
+| Account overview, sign out, sign out of all apps | `https://accounts.example.com/` | **Built** |
+| Sign up (new users) | Start the normal sign-in flow; the accounts site's login page has a "Create account" tab. | **Built** |
+| Change password while signed in | `https://accounts.example.com/account/password` | Planned, not built. Today users use "Forgot password?" on the login page. |
+| Change email | `https://accounts.example.com/account/email` | Planned, not built |
+| Apps with access / revoke | `https://accounts.example.com/account/apps` | Planned, not built |
+| Delete account | `https://accounts.example.com/account/delete` | Planned, not built. Needs server-side code, because deleting a user requires the secret key. |
+| Edit profile details | not decided yet | Planned, not built |
+
+Only link to routes marked **Built**; the others return the accounts site's "not found" page until they exist.
+
+A new user who signs up from inside an app confirms their email and lands on the accounts site's account page. They then return to the app and sign in again, which is instant because the accounts site already has their session.
 
 After an email change, the new address shows up in the app at the next token refresh.
 
@@ -544,9 +549,9 @@ After an email change, the new address shows up in the app at the next token ref
 2. **Register OAuth clients** in Supabase: one per platform, per environment, each with exact redirect URIs (supabase.md section 9.3).
 3. **Add each client** to `private.oauth_apps` with that app name (supabase.md section 9.4).
 4. **If the app uses the Supabase database:** create its schema, tables and RLS policies checking `app = 'app_c'`, then expose the schema (supabase.md section 10).
-5. **Add the accounts site `return_to` allow-list entry** for the app's origin.
+5. **Add the app's origin to the accounts site's `return_to` allow-list.** Append it to `VITE_LOGOUT_RETURN_ORIGINS` (comma-separated origins, no paths) in the accounts site's build settings, then redeploy it. It's read at build time, so the change doesn't take effect until the new build is live.
 6. **Integrate sign-in** (sections 5–7), token handling (section 8), and backend verification (section 9).
-7. **Test:**
+7. **Test:** follow [testing.md](./testing.md). It covers:
    - first sign-in
    - SSO from another app with no password prompt
    - refresh
