@@ -37,7 +37,7 @@ Follow `../docs/hosting.md`. In short:
 
 - Production values are in `.env.production`. They are read at build time, so changing one means redeploying. Add your apps' https origins to `VITE_LOGOUT_RETURN_ORIGINS` there.
 - In Supabase, set the Site URL to `https://auth.sike.dev` and the redirect allow list to match (`../docs/hosting.md` section 5).
-- Security headers (HSTS, CSP, `frame-ancestors 'none'`) are in `public/_headers`, which Cloudflare Pages applies. On another host, set the same headers its own way.
-- Host as a static site with a fallback to `index.html` for client-side routes. Cloudflare Pages does this on its own unless the project has a `404.html`.
+- Security headers (HSTS, CSP, `frame-ancestors 'none'`) are in `public/_headers`, which Cloudflare Pages applies. On Vercel (what production uses today) `vercel.json` carries the same headers and the `index.html` fallback. On another host, set them its own way.
+- Host as a static site with a fallback to `index.html` for client-side routes. Cloudflare Pages does this on its own unless the project has a `404.html`; Vercel needs the rewrite in `vercel.json`.
 - Email is sent through Resend from `no-reply@mail.sike.dev`. For a production project run `node --env-file=.env supabase/apply-email-config.mjs` from the repo root (see `../docs/supabase.md` section 6). Email links use Supabase's Site URL, so set it to the real address.
 - After the first deploy, run the smoke test in `../docs/hosting.md` and the recipe in `../docs/testing.md`.

@@ -68,7 +68,7 @@ Things to know about the CSP:
 | Host | What to add |
 |---|---|
 | Netlify | `web/public/_redirects` containing `/*  /index.html  200`, and the headers above in `netlify.toml` or a Netlify `_headers` file |
-| Vercel | a `vercel.json` with a rewrite of `/(.*)` to `/index.html`, and the headers above under `headers` |
+| Vercel | `web/vercel.json` (in the repo; production uses it): a rewrite of `/(.*)` to `/index.html`, plus the headers above. Vercel ignores `_headers` and sends its own HSTS, so that one isn't repeated. `src/lib/vercel-config.test.ts` fails if the file drifts from `_headers`. Make sure the Vercel project's **Root Directory** is `web`, or the file is ignored. |
 | S3 + CloudFront | custom error responses mapping 403 and 404 to `/index.html` with status 200, and a response-headers policy |
 
 ---
